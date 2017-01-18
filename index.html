@@ -1,0 +1,356 @@
+<!doctype html>
+<html>
+
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+	<title>IoT - Tony</title>
+
+	<link rel="stylesheet" href="css/reveal.css">
+	<link rel="stylesheet" href="css/theme/serif.css">
+
+	<!-- Theme used for syntax highlighting of code -->
+	<link rel="stylesheet" href="lib/css/zenburn.css">
+
+	<!-- Printing and PDF exports -->
+	<script>
+		var link = document.createElement('link');
+		link.rel = 'stylesheet';
+		link.type = 'text/css';
+		link.href = window.location.search.match(/print-pdf/gi) ? 'css/print/pdf.css' : 'css/print/paper.css';
+		document.getElementsByTagName('head')[0].appendChild(link);
+	</script>
+</head>
+
+<body>
+	<div class="reveal">
+		<div class="slides">
+			<section>
+				<h1>IoT - Security</h1>
+				<h5>Tony Truong</h5>
+				<a href="mailto:ttruong@dius.com.au">ttruong@dius.com.au</a>
+			</section>
+
+			<section>
+				<h2>Key Encryption</h2>
+				<img src="images/cryptoKeys.png" />
+
+				<aside class="notes">
+					Symmetric Keys
+					<ul>
+						<li>Encrypting and Decrypting share the same key. The funny thing is that the key needs to remain a secret yet it needs	to be shared with another party. </li>
+					</ul>
+					Asymmetric Keys
+					<ul>
+						<li>Public and Private Keys are mathematically linked</li>
+						<li>Public Key decrypts Files encrypted with Private Key and Vice Versa</li>
+						<li>E.g. Alice Shares file with Bob. Encrypts Privately, Allows Bob to Decrypt with Public</li>
+						<li>E.g. Alice Puts the file publicly on the internet and encrypts it with Public Key. Only Alice can decrypt it with her private key</li>
+					</ul>
+				</aside>
+			</section>
+
+			<section>
+				<h3>Hashes</h3>
+				<img src="images/golangDownload.png" />
+				<code lang="bash" style="background-color:white;"> $> sha256sum go1.7.4.linux-amd64.tar.gz
+</code>
+
+<aside class="notes">
+	<ul>
+		<li>Hashes allow for checking Integrity (File Corruption, Modification)</li>
+		<li>Other uses like MD5 two images to see if they are identical</li>
+	</ul>
+</aside>
+</section>
+
+<section>
+	<h3>Signatures</h3>
+	<img src="images/signatures.png" />
+
+	<aside class="notes">
+		<ul>
+			<li>Signatures don't have to be a separate file. They can be built into the file and compressed.</li>
+			<li>We can use signatures with a CA who signs our public key</li>
+		</ul>
+	</aside>
+
+</section>
+
+<section>
+	<h3>Certificates</h3>
+	<div style="overflow:auto; width:100%; height:500px;">
+<img height="" src="images/Usage-of-Digital-Certificate.svg" />
+</div>
+<aside class="notes">
+	<ul>
+		<li>CA - Certificate Authority</li>
+		<li>SSL/TLS is a popular form of X.509 certificate</li>
+		<li>Works on trust of the CA. Alice and Bob don't trust each other but they trust the CA. So if the CA says the data is good,
+			it's good enough for them.</li>
+	</ul>
+</aside>
+</section>
+
+<section>
+	<h3>Hardware Security Module (HSM)</h3>
+	<ul style="font-size:0.5em;">
+<li>Physical device that stores keys and certificates</li>
+<li>Can be used for generating keys</li>
+<li>Provide tamper resistance / automatic key deletion if tampered with</li>
+<li>Audit Logs</li>
+<li>Can contain a cryptoprocessor to prevent bus probing</li>
+</ul>
+
+<aside class="notes">
+	Come in card or pluggable form to plug into a computer/server. Can just use AWS KMS or CloudHSM (Pricey, $5000 up front +
+	$2.25/hr)
+</aside>
+</section>
+
+<section>
+	<h3>Embedded linux</h3>
+	<ul>
+		<img src="images/iotGatewayDevice.png" />
+	</ul>
+
+	<aside class="notes">
+		<ul>
+			<li>Security too broad. Focus on embedded linux in a corporate setting. Particularly a gateway device that acts as the portal
+				to the sensors</li>
+			<li>Security is like any linux whether desktop or gateway device.</li>
+		</ul>
+	</aside>
+</section>
+
+
+<section>
+	<h3>Secure Boot</h3>
+	<ul>
+		<li>UEFI (Unified Extensible Firmware Interface)</li>
+	</ul>
+	<img src="images/secureBoot.png" />
+	<aside class="notes">
+		<ul>
+			<li>Manufacturer and OS vendor will usually work with each other so that the OS vendor can have their certificate in the KEK.
+				They will then sign other certificates to be in the allowed DB.</li>
+			<li>PK – Platform Key represents the root of trust and is used to protect the KEK (Key Exchange Key) database. The platform
+				vendor puts public portion of the Platform Key (PK) into UEFI Firmware during manufacturing. Its private portion stays
+				with the vendor. When updating the PK, the new PK certificate must be signed with the old one.</li>
+			<li>KEK – The KEK (Key Exchange Key) database contains trusted certificates that are allowed to modify the Allowed Signature
+				database (db), Disallowed Signature database (dbx) or Timestamp signature database (dbt) described below. KEK database
+				usually contains certificates of Operating System Vendor (OSV) and is secured by the Platform Key (PK).</li>
+			<li>DB – EFI_IMAGE_SECURITY_DATABASE Allowed Signature database – this database may contain Certification Authority certificates
+				or their hashes that were used to generate code-signing certificates used to sign bootloader and other pre-boot components.
+				If the bootloader is signed by any of certificates chaining to the CA certificate present in this database, it is permitted
+				to execute. In this database we may also find explicit SHA2 hashes of the bootloader images.</li>
+			<li>DBX – EFI_IMAGE_SECURITY_DATABASE1 Disallowed Signature database – this database may contain the hash of a specific binary,
+				an X.509 certificate, or the hash of a certificate that were compromised and/or revoked. If the bootloader is signed
+				by any certificate present in this database, or its hash is present here, it will be denied from execution. See KB 2871690
+				for list of recently revoked image hashes.</li>
+			<li>DBT – EFI_IMAGE_SECURITY_DATABASE2 This is secure boot timestamp signature database. Contains timestamping certificates
+				using when signing bootloader images. All of these 3 databases are locked from editing by Key Exchange Key (KEK).</li>
+			<li>Microsoft has a process where you can have your EFI bootloader signed by their certs. They scan it for malware etc and
+				approve. But then you're their bitch.</li>
+			<li>TPM to secure OS? drivers, software, files, ELAM (early loading anti-malware)</li>
+			<li>GRUB2 is compatible with EFI</li>
+			<li>sbsign --key DB.key --cert DB.crt unsigned.efi --output signed.efi</li>
+		</ul>
+	</aside>
+</section>
+
+<section>
+	<h3>TPM - Trusted Platform Module</h3>
+	<img src="images/TPM.png" />
+	<aside class="notes">
+		<ul>
+			<li>TPM is an actual microchip that is used to store crypto keys.</li>
+			<li>When taking ownership of a TPM, a private key is generated that nobody can ever read. Commands are available to expose
+				the public key. Someone can't walk away with your keys in the HDD.</li>
+			<li>TPM communicates via a separate bus which means software on the OS can't get straight memory access to the TPM</li>
+			<li>When generating a key, you can specify platform profile values e.g. hardware to match so that if the TPM chip gets removed
+				and placed into another machine, it won't start unless the config was the same.</li>
+			<li>Windows tools like Bitlocker uses the TPM to encrypt the hard drive. If someone walks away with your drive they can't
+				decrypt it because the private key is on the TPM.</li>
+			<li>Can be used by a bootloader to encrypt a small portion of the OS start code and then unencrypted when booting</li>
+		</ul>
+	</aside>
+</section>
+
+<section>
+	<h3>TPM - Sealing/Unsealing</h3>
+	<img src="images/tpm_keywrapping.png"/>
+
+</section>
+
+<section>
+	<h3>Linux Namespaces</h3>
+	<p>A namespace wraps a global system resource in an abstraction that makes it appear to the processes within the namespace
+		that they have their own isolated instance of the global resource.</p>
+	<ul>
+		<li>Process</li>
+		<li>Network</li>
+		<li>File system</li>
+		<li>User</li>
+		<li>...</li>
+	</ul>
+
+	<aside class="notes">
+		<ul>
+			<li>Processes can have their own tree. Within that tree can be multiple processes separated from other parent / children trees.
+				This means that they cannot inspect or kill other processes outside their tree.</li>
+			<li>Network namespaces allow those processes to see an entirely different set of network interfaces including loopback.</li>
+			<li>Similar to chroot() except that chroot only affects the root folder for the process. If the child process mounts any other
+				drive it will only affect the child and not the parent namespace.</li>
+			<li>User namespace gives that user root privileges only in that namespace.</li>
+		</ul>
+	</aside>
+
+</section>
+
+<section>
+	<h3>Cgroups</h3>
+	<p>Control groups (cgroups) are a kernel mechanism for grouping, tracking, and limiting the resource usage of tasks. </p>
+	<ul style="font-size:0.5em;">
+<li>cpusets: fascilitate assigning a set of CPUS and memory nodes to cgroups. Tasks in a cpuset cgroup may only be scheduled
+	on CPUS assigned to that cpuset.</li>
+<li>cpuacct : provides per-cgroup cpu usage accounting.</li>
+<li>devices : controls the ability of tasks to create or use devices nodes using either a blacklist or whitelist.</li>
+<li>freezer : provides a way to 'freeze' and 'thaw' whole cgroups. Tasks in the cgroup will not be scheduled while they are frozen.</li>
+<li>memory : allows memory, kernel memory, and swap usage to be tracked and limited.</li>
+<li>net_prio : allows setting network traffic priority on a per-cgroup basis.</li>
+<li>cpu : enables setting of scheduling preferences on per-cgroup basis.</li>
+<li>perf_event : enables per-cpu mode to monitor only threads in certain cgroups.</li>
+</ul>
+<aside class="notes">
+</aside>
+</section>
+
+
+<section>
+	<h3>Updating Your Platform - Images</h3>
+	<img src="images/abPartitions.png" />
+	<aside class="notes">
+		<ul>
+			<li>Starting to see a lot of A/B Partitions.</li>
+			<li>Protects against power loss, corrupted installations and just general problems</li>
+			<li>The partition is readonly so the program is not modified and there's less attack surface</li>
+			<li>Data partition allows application to persist state after new image is installed</li>
+			<li>Allows easy rollback</li>
+			<li>Downside is that it's slower to update the entire image this way</li>
+			<li>Ubuntu Snappy Core and Brillo also use this A/B system</li>
+			<li>So how can we speed this up? Just update the application.</li>
+		</ul>
+	</aside>
+</section>
+
+<section>
+	<h3>Mender Demo</h3>
+	<section>
+		<ul>
+			<li>Mender project provides us with a platform to push OTA updates to our device in the field</li>
+			<li>Device runs a Mender daemon which talks to a server so we have reporting on status and what its running</li>
+			<li>We can make a deployment group and specifically deploy to a set of devices instead of all devices</li>
+			<li>Easy to roll back if we maintain a list of images</li>
+		</ul>
+		<aside class="notes">
+			VDeploy Details
+			<ul>
+				<li>name: release2</li>
+				<li>yocto id: test</li>
+				<li>checksum: test</li>
+				<li>compatibility: vexpress-qemu</li>
+				<li>description: My test build</li>
+			</ul>
+		</aside>
+	</section>
+	<section>
+		<h3>Authorize Devices</h3>
+		<img src="images/mender_authorize_devices.png" />
+	</section>
+
+	<section>
+		<h3>Device Details</h3>
+		<img src="images/mender_device_details.png" />
+	</section>
+
+	<section>
+		<h3>Upload New Artifact</h3>
+		<img src="images/mender_upload_artifact.png" />
+	</section>
+
+	<section>
+		<h3>Deploy Image</h3>
+		<img src="images/mender_update_progress.png" />
+	</section>
+
+</section>
+
+<section>
+	<h3>Building Your Own Linux with Yocto</h3>
+	<ul>
+		<li>Provides tools, templates and methods to build your own linux regardless of hardware architecture</li>
+		<li>Uses "meta" - layers to customize your system</li>
+		<li>Mender.io provides a meta-layer https://github.com/mendersoftware/meta-mender</li>
+	</ul>
+	<aside class="notes">
+		The Yocto Project is an open source collaboration project that provides templates, tools and methods to help you create custom
+		Linux-based systems for embedded products regardless of the hardware architecture.
+	</aside>
+</section>
+
+<section>
+	<h3>Summary</h3>
+	<ul>
+		<li>Cryotography</li>
+		<li>Hashes and Signatures</li>
+		<li>HSM and TPM</li>
+		<li>Secure Boot</li>
+		<li>Linux Namespaces and Cgroups</li>
+		<li>Keeping Updated with Mender.io</li>
+		<li>Building your own Linux with Yocto</li>
+	</ul>
+</section>
+
+<section>
+	<h3>Thank you</h3>
+</section>
+
+<section>
+	<h4>References:</h4>
+	<ul style="font-size:0.5em;">
+<li>https://help.ubuntu.com/lts/serverguide/cgroups-overview.html</li>
+<li>http://snapcraft.io/</li>
+<li>https://en.wikipedia.org/wiki/Public_key_certificate</li>
+<li>http://blogs.windriver.com/wind_river_blog/2016/05/sealing-data-with-tpm-on-vxworks.html</li>
+<li>http://www.linuxjournal.com/content/take-control-your-pc-uefi-secure-boot?page=0,0</li>
+<li>https://mender.io/</li>
+<li>https://www.yoctoproject.org/tools-resources/videos/introducing-yocto-project</li>
+</ul>
+</section>
+
+
+</div>
+</div>
+
+<script src="lib/js/head.min.js"></script>
+<script src="js/reveal.js"></script>
+
+<script>
+			// More info https://github.com/hakimel/reveal.js#configuration
+			Reveal.initialize({
+				history: true,
+
+				// More info https://github.com/hakimel/reveal.js#dependencies
+				dependencies: [
+					{ src: 'plugin/markdown/marked.js' },
+					{ src: 'plugin/markdown/markdown.js' },
+					{ src: 'plugin/notes/notes.js', async: true },
+					{ src: 'plugin/highlight/highlight.js', async: true, callback: function () { hljs.initHighlightingOnLoad(); } }
+				]
+			});
+</script>
+</body>
+
+</html>
